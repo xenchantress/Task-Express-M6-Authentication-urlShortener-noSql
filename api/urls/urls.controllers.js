@@ -4,6 +4,10 @@ const User = require("../../models/User");
 
 const baseUrl = "http:localhost:8000/urls";
 
+const shorten = ( req, res ) => {
+  const userId = req.user._id;
+};
+
 exports.shorten = async (req, res) => {
   // create url code
   const urlCode = shortid.generate();
@@ -34,6 +38,15 @@ exports.redirect = async (req, res) => {
   }
 };
 
+const deleteUrl = ( req, res ) =>{
+  const { user } = req;
+  const urlId = req.params.urlId;
+
+  if ( user._id.toString() !== url.creator.toString()) {
+    return res.status(401).json({ message: ' Unauthorized: You are not the creator of this URL'});
+  }
+};
+
 exports.deleteUrl = async (req, res) => {
   try {
     const url = await Url.findOne({ urlCode: req.params.code });
@@ -47,3 +60,4 @@ exports.deleteUrl = async (req, res) => {
     next(err);
   }
 };
+module.exports = { shorten, deleteUrl };
