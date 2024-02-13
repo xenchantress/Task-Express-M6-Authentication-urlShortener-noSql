@@ -4,19 +4,19 @@ const User = require("../../models/User");
 
 const baseUrl = "http:localhost:8000/urls";
 
-const shorten = ( req, res ) => {
-  const userId = req.user._id;
-};
+// const shorten = ( req, res ) => {
+//   const userId = req.user._id;
+// };
 
-exports.shorten = async (req, res) => {
+const shorten = async (req, res) => {
   // create url code
   const urlCode = shortid.generate();
   try {
     req.body.shortUrl = `${baseUrl}/${urlCode}`;
     req.body.urlCode = urlCode;
-    req.body.userId = req.params.userId;
+    req.body.userId = req.user._id;
     const newUrl = await Url.create(req.body);
-    await User.findByIdAndUpdate(req.params.userId, {
+    await User.findByIdAndUpdate(req.user._id, {
       $push: { urls: newUrl._id },
     });
     res.json(newUrl);
@@ -38,19 +38,22 @@ exports.redirect = async (req, res) => {
   }
 };
 
-const deleteUrl = ( req, res ) =>{
+const deleteUrl = async (req, res) => {
   const { user } = req;
-  const urlId = req.params.urlId;
+  const urlId = req.user._id;
+  const url = await Url.findOne({ urlCode: req.params.code });
 
-  if ( user._id.toString() !== url.creator.toString()) {
-    return res.status(401).json({ message: ' Unauthorized: You are not the creator of this URL'});
+  if (user._id.toString() !== url.creator.toString()) {
+    return res
+      .status(401)
+      .json({ message: " Unauthorized: You are not the creator of this URL" });
   }
 };
 
 exports.deleteUrl = async (req, res) => {
   try {
     const url = await Url.findOne({ urlCode: req.params.code });
-    if (url) {
+    if (!url) {
       await Url.findByIdAndDelete(url._id);
       return res.status(201).json("Deleted");
     } else {
@@ -60,4 +63,7 @@ exports.deleteUrl = async (req, res) => {
     next(err);
   }
 };
+
+
+
 module.exports = { shorten, deleteUrl };

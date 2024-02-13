@@ -1,43 +1,52 @@
-const localStrategy = require('passport-local').Strategy;
-const bcrypt = require('bcrypt');
-const User = require('../models/User');
-const passport = require ('passport');
+const User = require("../models/User");
+const bcrypt = require("bcrypt");
+require("dotenv").config();
+const LocalStrategy = require("passport-local").Strategy;
+const JWTStrategy = require("passport-jwt").Strategy;
+const { fromAuthHeaderAsBearerToken } = require("passport-jwt").ExtractJwt;
+const localStrategy = new LocalStrategy(
+  {
+    usernameField: "username",
+    passwordField: "password",
+  },
+  async (username, password, done) => {
+    try {
+      const user = await User.findOne({ username: username });
+      if (!user) {
+        return done({ message: "username or passowrd is wrong!", status: 401 });
+      }
 
-const { Strategy:JWTStrategy, ExtractJwt } = require ('passport-jwt');
+      const checkPass = await bcrypt.compare(password, user.password);
+      if (!checkPass) {
+        return done({ message: "username or passowrd is wrong!", status: 401 });
+      }
+      return done(null, user); // req.user = user
+    } catch (error) {
+      done(error);
+    }
+  }
+);
 
-const fromAuthHeaderBearerToken = ExtractJwt.fromAuthHeaderAsBearerToken;
 const jwtStrategy = new JWTStrategy(
-    {
-    jwtFromRequest: fromAuthHeaderBearerToken(),
-    secretOrKey: process.env.JWT_SECRET,
-},
-async (payload, done) => {
-    try{
-        if (Date.now() > payload.exp) {
-            return done(null, false, { message: ' Token expired'});
-        }
-        const user = await User.findOne({ _id: payload.sub });
-        if (!user) {
-            return done (null, false, { message: ' User not found'});
-        }
-        return done(null, user);
-    } catch (err) {
-        return done(err);
-    }
-}
-);
-const localStrategy = new localStrategy(
-    async (username, password, done) => {
-        try{
-            const user = await User.findOne ({ username });
+  {
+    jwtFromRequest: fromAuthHeaderAsBearerToken(),
+    secretOrKey: process.env.SECRET_KEY,
+  },
+  async (payload, done) => {
+    try {
+      const userId = payload._id;
+      const user = await User.findById(userId);
+      if (!user) return done({ message: "user not found!" });
 
-            if (!user || !(await bcrypt.compare(password, user.password))){
-                return done (null, false, {message: 'Incorrect username or password'});
-            }
-            return done(null, user);
-        } catch (err){
-            return done(err);
-        }
+      if (Date.now() / 1000 > payload.exp) {
+        return done({ message: "Token expired!" });
+      }
+
+      return done(null, user); // req.user = user
+    } catch (error) {
+      done(error);
     }
+  }
 );
-module.exports = { jwtStrategy, localStrategy };
+
+module.exports = { localStrategy, jwtStrategy };
